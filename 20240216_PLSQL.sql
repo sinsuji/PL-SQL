@@ -508,7 +508,7 @@ CREATE TABLE var_pk_tbl
 
 SELECT no, name
 FROM var_pk_tbl;
-'TEMP240215101' -- TEMP + yyMMdd + 숫자(3자리)
+-- 'TEMP240215101' -- TEMP + yyMMdd + 숫자(3자리)
 
 
 
@@ -522,7 +522,7 @@ CREATE TABLE var_pk_tbl
     name VARCHAR2(4000) DEFAULT 'anony'
 );
 
-'TEMP240215101' -- TEMP + yyMMdd + 숫자(3자리)
+-- 'TEMP240215101' -- TEMP + yyMMdd + 숫자(3자리)
 SELECT no, name
 FROM var_pk_tbl;
 
@@ -536,7 +536,7 @@ WHERE SUBSTR(no, 5, 6) = TO_CHAR(sysdate, 'yyMMdd');
 
 /*
 1.
-주민등록번호를 입력하면 
+주민등록번호를 입력하면
 다음과 같이 출력되도록 yedam_ju 프로시저를 작성하시오.
 
 EXECUTE yedam_ju(9501011667777)
@@ -568,6 +568,49 @@ EXECUTE yedam_ju('1511013689977');
 예) EXECUTE TEST_PRO(176)
 */
 
+CREATE TABLE test_employees
+AS
+    SELECT *
+    FROM employees;
+
+SELECT *
+FROM test_employees;
+   
+DROP PROCEDURE TEST_PRO;
+CREATE PROCEDURE TEST_PRO
+(p_eid IN employees.employee_id%TYPE)
+IS
+BEGIN
+    DELETE FROM test_employees
+    WHERE employee_id = p_eid;
+
+    IF SQL%ROWCOUNT = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('해당사원이 없습니다.');    
+    END IF;
+END;
+/
+
+EXECUTE TEST_PRO(0);
+
+-- 교수님 코드
+CREATE PROCEDURE test_pro
+(p_eid employees.employee_id%TYPE)
+IS 
+
+BEGIN
+    DELETE FROM test_employees
+    WHERE employee_id = p_eid;
+    
+    IF SQL%ROWCOUNT = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('해당 사원은 없습니다.');
+    END IF;
+END;
+/
+
+EXECUTE TEST_PRO(0);
+
+
+
 /*
 3.
 다음과 같이 PL/SQL 블록을 실행할 경우 
@@ -578,18 +621,204 @@ EXECUTE yedam_ju('1511013689977');
 실행결과) TAYLOR -> T*****  <- 이름 크기만큼 별표(*) 출력
 */
 
+-- 1) 입력 : 사원번호  -> 출력 : 사원이름  => SELECT 
+-- 2) 사원이름 : 정해진 포맷으로 변환
+
+DROP PROCEDURE yedam_emp;
+CREATE PROCEDURE yedam_emp
+(p_eid IN employees.employee_id%TYPE)
+IS
+    v_name employees.last_name%TYPE;
+    v_result VARCHAR2(100);
+BEGIN
+    SELECT last_name
+    INTO v_name
+    FROM employees
+    WHERE employee_id = p_eid;
+   
+    v_result := RPAD(SUBSTR(v_name, 1, 1), LENGTH(v_name), '*');
+    DBMS_OUTPUT.PUT_LINE(v_result);
+END;
+/
+
+EXECUTE yedam_emp(176);
+
+-- 교수님 코드
+CREATE PROCEDURE yedam_emp
+(p_eid IN employees.employee_id%TYPE) -- 입력 : 사원번호 => IN 매개변수
+IS
+    v_ename employees.last_name%TYPE;
+    v_result v_ename%TYPE;
+BEGIN
+    -- 조회 : 사원번호 -> 사원이름
+    SELECT last_name
+    INTO v_ename -- 변수 : VARCHAR2
+    FROM employees
+    WHERE employee_id = p_eid;
+    
+    -- 이름 : 첫번째 글자 제외 나머지 글자 *로 변환
+    v_result := RPAD(SUBSTR(v_ename, 1, 1), LENGTH(v_ename), '*' ); -- 변수 : VARCHAR2
+    
+    DBMS_OUTPUT.PUT_LINE(v_ename || ' -> ' || v_result);
+END;
+/
+
+EXECUTE yedam_emp(176);
+
 /*
 4.
-부서번호를 입력할 경우 
-해당부서에 근무하는 사원의 사원번호, 사원이름(last_name)을 출력하는 get_emp 프로시저를 생성하시오. 
+부서번호를 입력할 경우
+해당부서에 근무하는 사원의 사원번호, 사원이름(last_name)을 출력하는 get_emp 프로시저를 생성하시오.
 (cursor 사용해야 함)
 단, 사원이 없을 경우 "해당 부서에는 사원이 없습니다."라고 출력(exception 사용)
 실행) EXECUTE get_emp(30)
 */
+-- 1) 입력 : 부서번호 -> 출력 : 사원번호, 사원이름 => 커서
+-- 2) 예외사항 : 사원이 없는 경우 -> "해당 부서에는 사원이 없습니다." 출력
+
+DROP PROCEDURE get_emp;
+CREATE PROCEDURE get_emp
+(p_did IN employees.department_id%TYPE)
+IS
+    e_emp_not_found EXCEPTION;
+    CURSOR dept_emp_cursor IS
+        SELECT employee_id, last_name
+        FROM employees
+        WHERE department_id = p_did;
+   
+    v_emp_info dept_emp_cursor%ROWTYPE;
+    v_count NUMBER := 0;
+
+BEGIN
+    OPEN dept_emp_cursor;
+   
+    LOOP
+        FETCH dept_emp_cursor INTO v_emp_info;
+        EXIT WHEN dept_emp_cursor%NOTFOUND;
+       
+        DBMS_OUTPUT.PUT('사원번호 : ' || v_emp_info.employee_id);
+        DBMS_OUTPUT.PUT(', 사원이름 : ' || v_emp_info.last_name);
+        DBMS_OUTPUT.PUT_LINE('');
+        v_count := v_count + 1;
+    END LOOP;
+       
+    IF v_count = 0 THEN
+        RAISE e_emp_not_found;
+    END IF;
+   
+    CLOSE dept_emp_cursor;
+   
+EXCEPTION
+    WHEN e_emp_not_found THEN
+        DBMS_OUTPUT.PUT_LINE('해당 부서에는 사원이 없습니다.');    
+END;
+/
+
+EXECUTE get_emp(30);
+
+-- 교수님 코드
+CREATE PROCEDURE get_emp
+(p_deptno IN departments.department_id%TYPE)
+IS
+    CURSOR dept_cursor IS
+        SELECT employee_id, last_name
+        FROM employees
+        WHERE department_id = p_deptno;
+        
+    emp_info dept_cursor%ROWTYPE;
+    
+    e_no_emp EXCEPTION;
+BEGIN
+    OPEN dept_cursor;
+    
+    LOOP
+        FETCH dept_cursor INTO emp_info;
+        EXIT WHEN dept_cursor%NOTFOUND;
+        
+        DBMS_OUTPUT.PUT_LINE(emp_info.employee_id || ', ' || emp_info.last_name);
+    END LOOP;
+    
+    IF dept_cursor%ROWCOUNT = 0 THEN
+        RAISE e_no_emp;
+    END IF;
+    
+    CLOSE dept_cursor;    
+EXCEPTION
+    WHEN e_no_emp THEN
+        DBMS_OUTPUT.PUT_LINE('해당 부서에는 사원이 없습니다.');
+END;
+/
+EXECUTE get_emp(0);
 
 /*
 5.
-직원들의 사번, 급여 증가치만 입력하면 Employees테이블에 쉽게 사원의 급여를 갱신할 수 있는 y_update 프로시저를 작성하세요. 
+직원들의 사번, 급여 증가치(비율)만 입력하면 Employees테이블에 쉽게 사원의 급여를 갱신할 수 있는 y_update 프로시저를 작성하세요.
 만약 입력한 사원이 없는 경우에는 ‘No search employee!!’라는 메시지를 출력하세요.(예외처리)
 실행) EXECUTE y_update(200, 10)
 */
+
+-- 1) 입력 : 사원번호, 급여증가치 -> UPDATE
+-- 2) 예외사항 : 사원이 없는 경우 ‘No search employee!!’ 출력
+
+DROP PROCEDURE y_update;
+CREATE PROCEDURE y_update
+(p_eid IN employees.employee_id%TYPE,
+p_raise NUMBER)
+IS
+    e_emp_not_found EXCEPTION;
+    v_salary employees.salary%TYPE;
+BEGIN
+
+    SELECT salary
+    INTO v_salary
+    FROM test_employees
+    WHERE employee_id = p_eid;
+
+    v_salary := v_salary + (v_salary * p_raise/100);
+   
+    UPDATE test_employees
+    SET salary = v_salary
+    WHERE employee_id = p_eid;
+   
+    IF SQL%ROWCOUNT = 0 THEN
+        RAISE e_emp_not_found;
+    END IF;
+
+EXCEPTION
+    WHEN e_emp_not_found THEN
+        DBMS_OUTPUT.PUT_LINE('No search employee!!');    
+
+END;
+/
+
+EXECUTE y_update(200, 10);
+
+SELECT employee_id, salary
+FROM test_employees;
+
+
+-- 교수님 코드
+CREATE PROCEDURE y_update
+( p_eid IN employees.employee_id%TYPE,
+  p_raise IN NUMBER )
+IS
+    e_no_emp EXCEPTION;
+BEGIN
+    UPDATE employees
+    -- SET salary = salary + salary * (p_raise/100)
+    SET salary = salary * ( 1 + (p_raise/100) )
+    WHERE employee_id = p_eid;
+    
+    IF SQL%ROWCOUNT = 0 THEN
+        RAISE e_no_emp;
+    END IF;
+    
+EXCEPTION
+    WHEN e_no_emp THEN
+        DBMS_OUTPUT.PUT_LINE('No search employee!!');
+END;
+/
+
+SELECT * FROM employees WHERE employee_id = 200;
+
+EXECUTE y_update(0, 10);
